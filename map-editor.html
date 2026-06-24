@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Editor de Mapas — FarmaStock</title>
+<link href="vendor/fonts/fonts.css" rel="stylesheet">
+<style>
+:root{
+  --bg:#f0f2f5;--surface:#fff;--border:#c8cfd8;
+  --accent:#1a3a5c;--accent2:#2563a8;--purple:#7c3aed;--purple-bg:#ede9fe;
+  --green:#0d7a4e;--red:#b91c1c;--text:#1a2433;--text2:#4a5568;--text3:#8a9ab0;
+  --r:6px;--sh:0 2px 8px rgba(26,58,92,.10)
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'IBM Plex Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;flex-direction:column}
+header{background:var(--accent);color:#fff;padding:0 20px;height:54px;display:flex;align-items:center;gap:14px;box-shadow:0 2px 8px rgba(0,0,0,.18);position:sticky;top:0;z-index:200}
+.logo{font-family:'IBM Plex Mono',monospace;font-size:1.05rem;font-weight:600;letter-spacing:.08em}
+.logo span{color:#a78bfa}
+.sep{flex:1}
+.hbtns{display:flex;gap:7px;align-items:center}
+.hbtn{background:rgba(255,255,255,.12);color:#fff;border:1px solid rgba(255,255,255,.22);border-radius:var(--r);padding:5px 13px;font-size:.73rem;font-family:'IBM Plex Sans',sans-serif;font-weight:500;cursor:pointer;transition:background .15s;white-space:nowrap}
+.hbtn:hover{background:rgba(255,255,255,.24)}
+.hbtn.primary{background:rgba(124,58,237,.5);border-color:rgba(124,58,237,.7)}
+.hbtn.primary:hover{background:rgba(124,58,237,.75)}
+.hbtn.success{background:rgba(13,122,78,.45);border-color:rgba(13,122,78,.7)}
+.hbtn.success:hover{background:rgba(13,122,78,.65)}
+.hbtn.danger{background:rgba(185,28,28,.35);border-color:rgba(185,28,28,.5)}
+.layout{display:grid;grid-template-columns:1fr 340px;flex:1;min-height:0;gap:0}
+/* Canvas */
+.canvas-wrap{padding:20px;display:flex;flex-direction:column;gap:12px;overflow:auto}
+.toolbar{display:flex;gap:8px;align-items:center;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:8px 12px;box-shadow:var(--sh)}
+.tool-btn{background:#f0f2f5;border:1px solid var(--border);border-radius:4px;padding:5px 10px;font-size:.72rem;cursor:pointer;font-family:'IBM Plex Sans',sans-serif;color:var(--text2);display:flex;align-items:center;gap:5px;transition:all .15s}
+.tool-btn.active{background:var(--purple-bg);border-color:var(--purple);color:var(--purple);font-weight:600}
+.tool-btn:hover:not(.active){background:#e8eaf0}
+.tool-hint{font-size:.68rem;color:var(--text3);margin-left:auto}
+.svg-container{background:var(--surface);border:2px solid var(--border);border-radius:10px;box-shadow:var(--sh);overflow:hidden;cursor:crosshair;position:relative;user-select:none}
+.svg-container.select-mode{cursor:default}
+#map-svg{display:block;width:100%;height:auto}
+.zone-r{fill:#f0fdf4;stroke:#1a3a5c;stroke-width:1.5;cursor:move;transition:fill .12s,stroke-width .12s}
+.zone-r:hover{fill:#dbeafe;stroke-width:2.5}
+.zone-r.selected{fill:#bfdbfe;stroke:#2563a8;stroke-width:3}
+.zone-lbl{font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:600;fill:#1a3a5c;text-anchor:middle;pointer-events:none;dominant-baseline:middle}
+.zone-sub{font-family:'IBM Plex Sans',sans-serif;font-size:10px;fill:#4a5568;text-anchor:middle;pointer-events:none}
+.draw-preview{fill:rgba(124,58,237,.1);stroke:#7c3aed;stroke-width:2;stroke-dasharray:6 3;pointer-events:none}
+/* Sidebar */
+.sidebar{background:var(--surface);border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+.sb-section{padding:16px;border-bottom:1px solid var(--border)}
+.sb-title{font-size:.67rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:10px}
+.form-row{display:flex;flex-direction:column;gap:4px;margin-bottom:10px}
+.form-row label{font-size:.72rem;font-weight:500;color:var(--text2)}
+.form-row input{border:1px solid var(--border);border-radius:4px;padding:6px 8px;font-size:.8rem;font-family:'IBM Plex Sans',sans-serif;color:var(--text);outline:none;transition:border .15s}
+.form-row input:focus{border-color:var(--accent2)}
+/* Zone list */
+.zone-list{flex:1;overflow-y:auto;padding:8px 16px 16px}
+.zone-item{display:flex;align-items:center;gap:8px;padding:7px 8px;border-radius:5px;cursor:pointer;margin-bottom:3px;transition:background .12s;border:1px solid transparent}
+.zone-item:hover{background:#f5f7fa}
+.zone-item.active{background:var(--purple-bg);border-color:rgba(124,58,237,.3)}
+.zone-dot{width:12px;height:12px;border-radius:2px;flex-shrink:0;border:1px solid rgba(0,0,0,.12)}
+.zone-item-name{font-size:.78rem;font-weight:500;flex:1}
+.zone-item-id{font-family:'IBM Plex Mono',monospace;font-size:.68rem;color:var(--text3)}
+.zone-item-del{background:none;border:none;color:var(--text3);cursor:pointer;font-size:.9rem;padding:2px 5px;border-radius:3px;opacity:0;transition:opacity .15s}
+.zone-item:hover .zone-item-del,.zone-item.active .zone-item-del{opacity:1}
+.zone-item-del:hover{color:var(--red);background:#fee2e2}
+/* Zone edit panel */
+.zone-edit{padding:14px 16px;border-top:1px solid var(--border);background:#fafbfc}
+.zone-edit-title{font-size:.72rem;font-weight:600;color:var(--purple);margin-bottom:10px}
+.color-swatches{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
+.swatch{width:22px;height:22px;border-radius:4px;border:2px solid transparent;cursor:pointer;transition:transform .1s,border-color .1s}
+.swatch:hover,.swatch.sel{transform:scale(1.2);border-color:var(--accent)}
+/* Empty state */
+.empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 20px;gap:12px;opacity:.5}
+.empty-state svg{opacity:.4}
+.empty-state p{font-size:.82rem;text-align:center;color:var(--text2)}
+/* Toast */
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(10px);background:#1a2433;color:#fff;padding:8px 18px;border-radius:20px;font-size:.78rem;opacity:0;transition:opacity .25s,transform .25s;pointer-events:none;z-index:9999}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.toast.ok{background:#0d7a4e}
+.toast.err{background:#b91c1c}
+/* Dim grid */
+#map-svg .grid-line{stroke:#e2e8f0;stroke-width:0.5}
+@media (max-width: 860px){.layout{grid-template-columns:1fr}.sidebar{border-left:none;border-top:1px solid var(--border);max-height:40vh}}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">MAP<span>EDITOR</span></div>
+  <div class="sep"></div>
+  <div style="font-size:.72rem;color:#a8c4e0">Editor de Mapas — FarmaStock</div>
+  <div class="hbtns">
+    <button class="hbtn" onclick="toggleGrid()" id="btn-grid">▦ Cuadrícula</button>
+    <button class="hbtn" onclick="clearAll()" id="btn-clear">🗑 Limpiar</button>
+    <button class="hbtn" onclick="document.getElementById('fi-import').click()">📂 Abrir mapa</button>
+    <input type="file" id="fi-import" accept=".json" style="display:none" onchange="importMap(event)">
+    <button class="hbtn primary" onclick="exportMap()">💾 Exportar JSON</button>
+    <button class="hbtn success" onclick="applyToApp()">✅ Aplicar a FarmaStock</button>
+    <button class="hbtn" onclick="window.location.href='index.html'">← Volver</button>
+  </div>
+</header>
+
+<div class="layout">
+  <div class="canvas-wrap">
+    <div class="toolbar">
+      <button class="tool-btn active" id="tool-draw" onclick="setTool('draw')">✏️ Dibujar zona</button>
+      <button class="tool-btn" id="tool-select" onclick="setTool('select')">↖ Seleccionar / Mover</button>
+      <span class="tool-hint" id="tool-hint">Haz clic y arrastra para crear una nueva zona</span>
+    </div>
+    <div class="svg-container" id="svg-container">
+      <svg id="map-svg" viewBox="0 0 620 800" xmlns="http://www.w3.org/2000/svg">
+        <g id="grid-layer"></g>
+        <rect id="border-rect" x="2" y="2" width="616" height="796" fill="none" stroke="#1a3a5c" stroke-width="2" rx="4"/>
+        <g id="zones-layer"></g>
+        <rect id="draw-preview" class="draw-preview" x="0" y="0" width="0" height="0" style="display:none"/>
+      </svg>
+    </div>
+    <div style="font-size:.68rem;color:var(--text3);text-align:center">
+      Canvas: 620 × 800 px · Click derecho en zona para eliminar · Arrastra para mover (modo Seleccionar)
+    </div>
+  </div>
+
+  <div class="sidebar">
+    <div class="sb-section">
+      <div class="sb-title">Negocio</div>
+      <div class="form-row">
+        <label>Nombre del negocio</label>
+        <input type="text" id="biz-name" placeholder="Ej: Farmacia Central, Almacén Norte…" maxlength="60">
+      </div>
+    </div>
+
+    <div class="sb-section" style="padding-bottom:8px">
+      <div class="sb-title">Zonas (<span id="zone-count">0</span>)</div>
+      <div class="zone-list" id="zone-list">
+        <div class="empty-state" id="empty-state">
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+          <p>Todavía no hay zonas.<br>Usa el modo <strong>Dibujar</strong> para crear zonas.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="zone-edit" id="zone-edit" style="display:none">
+      <div class="zone-edit-title" id="ze-title">Editar zona</div>
+      <div class="form-row">
+        <label>ID de zona</label>
+        <input type="text" id="ze-id" placeholder="Ej: A1, 01, Estante-1" maxlength="12">
+      </div>
+      <div class="form-row">
+        <label>Etiqueta visible</label>
+        <input type="text" id="ze-label" placeholder="Texto en el mapa (vacío = usar ID)">
+      </div>
+      <div class="form-row" style="margin-bottom:4px">
+        <label>Color</label>
+        <input type="text" id="ze-color" placeholder="#dcfce7" maxlength="7" style="font-family:'IBM Plex Mono',monospace">
+      </div>
+      <div class="color-swatches" id="color-swatches"></div>
+      <div style="display:flex;gap:6px;margin-top:10px">
+        <button class="tool-btn" onclick="saveZoneEdit()" style="flex:1;justify-content:center;background:var(--purple-bg);color:var(--purple);border-color:rgba(124,58,237,.4);font-weight:600">Guardar</button>
+        <button class="tool-btn" onclick="cancelZoneEdit()" style="flex:1;justify-content:center">Cancelar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+var MK='farmastock_map_config';
+var zones=[];
+var selId=null;
+var tool='draw';
+var isDraw=false,isMove=false;
+var drawStart={x:0,y:0};
+var moveStart={x:0,y:0},moveOrig={x:0,y:0};
+var snapGrid=10;
+var showGrid=false;
+var toastT;
+var editOrigId=null;
+
+var SWATCHES=['#dcfce7','#dbeafe','#fef3c7','#fce7f3','#ede9fe','#ffedd5','#e0f2fe','#f1f5f9','#fee2e2','#d1fae5'];
+
+function toast(msg,type){
+  var t=document.getElementById('toast');
+  t.textContent=msg;t.className='toast show'+(type?' '+type:'');
+  clearTimeout(toastT);toastT=setTimeout(function(){t.className='toast'},2600);
+}
+
+function uid(){return Math.random().toString(36).slice(2,8)}
+
+function svgCoords(e){
+  var svg=document.getElementById('map-svg');
+  var rect=svg.getBoundingClientRect();
+  var vb=svg.viewBox.baseVal;
+  var sx=vb.width/rect.width;
+  var sy=vb.height/rect.height;
+  return{x:(e.clientX-rect.left)*sx,y:(e.clientY-rect.top)*sy};
+}
+
+function snap(v){return Math.round(v/snapGrid)*snapGrid}
+
+/* ── Tool mode ── */
+function setTool(t){
+  tool=t;
+  document.getElementById('tool-draw').classList.toggle('active',t==='draw');
+  document.getElementById('tool-select').classList.toggle('active',t==='select');
+  document.getElementById('svg-container').classList.toggle('select-mode',t==='select');
+  document.getElementById('tool-hint').textContent=
+    t==='draw'?'Haz clic y arrastra para crear una nueva zona':
+    'Haz clic en una zona para seleccionarla y arrastrar para moverla';
+}
+
+/* ── Grid ── */
+function toggleGrid(){
+  showGrid=!showGrid;
+  renderGrid();
+  document.getElementById('btn-grid').classList.toggle('active',showGrid);
+}
+function renderGrid(){
+  var g=document.getElementById('grid-layer');g.innerHTML='';
+  if(!showGrid)return;
+  for(var x=0;x<=620;x+=snapGrid){var l=document.createElementNS('http://www.w3.org/2000/svg','line');l.setAttribute('class','grid-line');l.setAttribute('x1',x);l.setAttribute('y1',0);l.setAttribute('x2',x);l.setAttribute('y2',800);g.appendChild(l);}
+  for(var y=0;y<=800;y+=snapGrid){var l2=document.createElementNS('http://www.w3.org/2000/svg','line');l2.setAttribute('class','grid-line');l2.setAttribute('x1',0);l2.setAttribute('y1',y);l2.setAttribute('x2',620);l2.setAttribute('y2',y);g.appendChild(l2);}
+}
+
+/* ── Zone rendering ── */
+function findZone(id){return zones.find(function(z){return z.id===id})||null}
+
+function renderZones(){
+  var g=document.getElementById('zones-layer');g.innerHTML='';
+  zones.forEach(function(z){
+    var r=document.createElementNS('http://www.w3.org/2000/svg','rect');
+    r.setAttribute('class','zone-r'+(z.id===selId?' selected':''));
+    r.setAttribute('id','zr-'+z.id);
+    r.setAttribute('x',z.x);r.setAttribute('y',z.y);
+    r.setAttribute('width',z.w);r.setAttribute('height',z.h);
+    r.setAttribute('rx','3');
+    r.setAttribute('fill',z.color||'#f0fdf4');
+    r.setAttribute('data-zid',z.id);
+    var lbl=document.createElementNS('http://www.w3.org/2000/svg','text');
+    lbl.setAttribute('class','zone-lbl');
+    lbl.setAttribute('x',z.x+z.w/2);lbl.setAttribute('y',z.y+z.h/2-(z.label&&z.label!==z.id?6:0));
+    lbl.setAttribute('data-zid',z.id);
+    lbl.textContent=z.id;
+    g.appendChild(r);g.appendChild(lbl);
+    if(z.label&&z.label!==z.id){
+      var sub=document.createElementNS('http://www.w3.org/2000/svg','text');
+      sub.setAttribute('class','zone-sub');
+      sub.setAttribute('x',z.x+z.w/2);sub.setAttribute('y',z.y+z.h/2+10);
+      sub.setAttribute('data-zid',z.id);sub.textContent=z.label;
+      g.appendChild(sub);
+    }
+  });
+  renderZoneList();
+}
+
+function renderZoneList(){
+  var list=document.getElementById('zone-list');
+  document.getElementById('zone-count').textContent=zones.length;
+  document.getElementById('empty-state').style.display=zones.length?'none':'flex';
+  var items=list.querySelectorAll('.zone-item');
+  items.forEach(function(el){el.remove()});
+  zones.forEach(function(z){
+    var d=document.createElement('div');
+    d.className='zone-item'+(z.id===selId?' active':'');
+    d.dataset.zid=z.id;
+    d.innerHTML='<div class="zone-dot" style="background:'+(z.color||'#f0fdf4')+'"></div>'+
+      '<span class="zone-item-id">'+esc(z.id)+'</span>'+
+      (z.label&&z.label!==z.id?'<span class="zone-item-name">'+esc(z.label)+'</span>':'<span class="zone-item-name" style="color:var(--text3)">sin etiqueta</span>')+
+      '<button class="zone-item-del" title="Eliminar zona" onclick="delZone(\''+z.id.replace(/'/g,"\\'")+'\')" >✕</button>';
+    d.addEventListener('click',function(e){if(e.target.classList.contains('zone-item-del'))return;selectZone(z.id)});
+    list.appendChild(d);
+  });
+}
+
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+
+/* ── Zone selection & edit ── */
+function selectZone(id){
+  selId=id;
+  renderZones();
+  openZoneEdit(id);
+}
+function deselect(){
+  selId=null;
+  renderZones();
+  document.getElementById('zone-edit').style.display='none';
+}
+
+function openZoneEdit(id){
+  var z=findZone(id);if(!z)return;
+  editOrigId=id;
+  document.getElementById('ze-title').textContent='Zona: '+id;
+  document.getElementById('ze-id').value=z.id;
+  document.getElementById('ze-label').value=z.label||'';
+  document.getElementById('ze-color').value=z.color||'';
+  document.getElementById('zone-edit').style.display='block';
+  renderSwatches(z.color);
+}
+function cancelZoneEdit(){
+  document.getElementById('zone-edit').style.display='none';
+  editOrigId=null;
+}
+function saveZoneEdit(){
+  var newId=document.getElementById('ze-id').value.trim();
+  var label=document.getElementById('ze-label').value.trim();
+  var color=document.getElementById('ze-color').value.trim();
+  if(!newId){toast('El ID no puede estar vacío','err');return}
+  if(color&&!/^#[0-9A-Fa-f]{6}$/.test(color)){toast('Color inválido (usa #rrggbb)','err');return}
+  if(newId!==editOrigId&&zones.some(function(z){return z.id===newId})){toast('El ID "'+newId+'" ya existe','err');return}
+  var z=findZone(editOrigId);if(!z)return;
+  z.id=newId;z.label=label||newId;z.color=color||'#f0fdf4';
+  selId=newId;editOrigId=newId;
+  document.getElementById('ze-title').textContent='Zona: '+newId;
+  renderZones();
+  toast('Zona actualizada','ok');
+}
+
+function renderSwatches(current){
+  var c=document.getElementById('color-swatches');c.innerHTML='';
+  SWATCHES.forEach(function(col){
+    var s=document.createElement('div');
+    s.className='swatch'+(col===current?' sel':'');
+    s.style.background=col;
+    s.title=col;
+    s.addEventListener('click',function(){
+      document.getElementById('ze-color').value=col;
+      c.querySelectorAll('.swatch').forEach(function(el){el.classList.toggle('sel',el.style.background===col||el.title===col)});
+    });
+    c.appendChild(s);
+  });
+}
+
+function delZone(id){
+  if(!confirm('¿Eliminar la zona "'+id+'"?'))return;
+  zones=zones.filter(function(z){return z.id!==id});
+  if(selId===id){selId=null;document.getElementById('zone-edit').style.display='none';}
+  renderZones();
+  toast('Zona eliminada','ok');
+}
+
+/* ── Draw interaction ── */
+var svg=document.getElementById('map-svg');
+
+svg.addEventListener('mousedown',function(e){
+  if(tool==='draw'){
+    var p=svgCoords(e);
+    isDraw=true;
+    drawStart={x:snap(p.x),y:snap(p.y)};
+    var pr=document.getElementById('draw-preview');
+    pr.setAttribute('x',drawStart.x);pr.setAttribute('y',drawStart.y);
+    pr.setAttribute('width',0);pr.setAttribute('height',0);
+    pr.style.display='block';
+    e.preventDefault();
+  } else if(tool==='select'){
+    var target=e.target.closest('[data-zid]');
+    if(target){
+      var zid=target.getAttribute('data-zid');
+      var z=findZone(zid);if(!z)return;
+      var p2=svgCoords(e);
+      isMove=true;
+      moveStart={x:p2.x,y:p2.y};
+      moveOrig={x:z.x,y:z.y};
+      selId=zid;
+      renderZones();
+      openZoneEdit(zid);
+      e.preventDefault();
+    }else{
+      deselect();
+    }
+  }
+});
+
+document.addEventListener('mousemove',function(e){
+  if(isDraw){
+    var p=svgCoords(e);
+    var x=snap(Math.min(p.x,drawStart.x));
+    var y=snap(Math.min(p.y,drawStart.y));
+    var w=snap(Math.abs(p.x-drawStart.x));
+    var h=snap(Math.abs(p.y-drawStart.y));
+    var pr=document.getElementById('draw-preview');
+    pr.setAttribute('x',x);pr.setAttribute('y',y);
+    pr.setAttribute('width',w);pr.setAttribute('height',h);
+  } else if(isMove&&selId){
+    var p2=svgCoords(e);
+    var z=findZone(selId);if(!z)return;
+    var nx=snap(moveOrig.x+(p2.x-moveStart.x));
+    var ny=snap(moveOrig.y+(p2.y-moveStart.y));
+    nx=Math.max(4,Math.min(nx,616-z.w));
+    ny=Math.max(4,Math.min(ny,796-z.h));
+    z.x=nx;z.y=ny;
+    renderZones();
+  }
+});
+
+document.addEventListener('mouseup',function(e){
+  if(isDraw){
+    isDraw=false;
+    var pr=document.getElementById('draw-preview');
+    var w=parseFloat(pr.getAttribute('width'));
+    var h=parseFloat(pr.getAttribute('height'));
+    pr.style.display='none';
+    if(w>=20&&h>=15){
+      var newId=nextId();
+      zones.push({id:newId,label:newId,x:parseFloat(pr.getAttribute('x')),y:parseFloat(pr.getAttribute('y')),w:w,h:h,color:'#f0fdf4'});
+      selId=newId;
+      renderZones();
+      openZoneEdit(newId);
+      toast('Zona "'+newId+'" creada — edita sus propiedades','ok');
+    }
+  }
+  if(isMove){isMove=false;}
+});
+
+svg.addEventListener('contextmenu',function(e){
+  var target=e.target.closest('[data-zid]');
+  if(target){e.preventDefault();delZone(target.getAttribute('data-zid'));}
+});
+
+function nextId(){
+  var nums=zones.map(function(z){var n=parseInt(z.id);return isNaN(n)?0:n}).filter(function(n){return n>0});
+  var next=(nums.length?Math.max.apply(null,nums)+1:1);
+  while(zones.some(function(z){return z.id===String(next)}))next++;
+  return String(next);
+}
+
+/* ── Clear ── */
+function clearAll(){
+  if(zones.length&&!confirm('¿Eliminar todas las zonas del canvas?'))return;
+  zones=[];selId=null;
+  document.getElementById('zone-edit').style.display='none';
+  renderZones();
+  toast('Canvas limpiado','ok');
+}
+
+/* ── Import / Export ── */
+function buildConfig(){
+  return{
+    _farmastock_map:true,_v:'1.0',_d:new Date().toISOString(),
+    business:document.getElementById('biz-name').value.trim(),
+    zones:zones.map(function(z){return{id:z.id,label:z.label||z.id,x:z.x,y:z.y,w:z.w,h:z.h,color:z.color||''}})
+  };
+}
+
+function exportMap(){
+  if(!zones.length){toast('Añade al menos una zona antes de exportar','err');return}
+  var cfg=buildConfig();
+  var b=new Blob([JSON.stringify(cfg,null,2)],{type:'application/json'});
+  var u=URL.createObjectURL(b);
+  var a=document.createElement('a');a.href=u;
+  a.download='farmastock-mapa-'+(cfg.business||'custom')+'-'+new Date().toISOString().slice(0,10)+'.json';
+  a.click();URL.revokeObjectURL(u);
+  toast('Mapa exportado','ok');
+}
+
+function importMap(ev){
+  var f=ev.target.files[0];if(!f)return;
+  var r=new FileReader();
+  r.onload=function(e){
+    try{
+      var cfg=JSON.parse(e.target.result);
+      var zlist=cfg.zones||cfg;
+      if(!Array.isArray(zlist))throw new Error('Formato no reconocido');
+      if(!confirm('¿Reemplazar el mapa actual con "'+f.name+'"?'))return;
+      zones=zlist.map(function(z){return{id:String(z.id),label:z.label||String(z.id),x:+z.x,y:+z.y,w:+z.w,h:+z.h,color:z.color||''}});
+      document.getElementById('biz-name').value=cfg.business||'';
+      selId=null;
+      document.getElementById('zone-edit').style.display='none';
+      renderZones();
+      toast('Mapa cargado: '+zones.length+' zonas','ok');
+    }catch(err){toast('Error: '+err.message,'err')}
+    ev.target.value='';
+  };
+  r.readAsText(f);
+}
+
+function applyToApp(){
+  if(!zones.length){toast('Añade al menos una zona antes de aplicar','err');return}
+  var biz=document.getElementById('biz-name').value.trim();
+  if(!biz&&!confirm('No has introducido el nombre del negocio. ¿Aplicar de todas formas?'))return;
+  var cfg=buildConfig();
+  try{localStorage.setItem(MK,JSON.stringify(cfg));}catch(e){toast('Error al guardar: '+e.message,'err');return}
+  toast('Mapa aplicado — redirigiendo a FarmaStock…','ok');
+  setTimeout(function(){window.location.href='index.html'},1200);
+}
+
+/* ── Load existing map on startup ── */
+(function(){
+  try{
+    var saved=localStorage.getItem(MK);
+    if(saved){
+      var cfg=JSON.parse(saved);
+      if(cfg.business)document.getElementById('biz-name').value=cfg.business;
+      if(Array.isArray(cfg.zones)){
+        zones=cfg.zones.map(function(z){return{id:String(z.id),label:z.label||String(z.id),x:+z.x,y:+z.y,w:+z.w,h:+z.h,color:z.color||''};});
+      }
+    }
+  }catch(e){}
+  renderZones();
+})();
+</script>
+</body>
+</html>

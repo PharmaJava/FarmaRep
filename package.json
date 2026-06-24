@@ -25,11 +25,15 @@
       "target": [
         {
           "target": "nsis",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         },
         {
           "target": "portable",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         }
       ],
       "icon": "electron/assets/icon.ico"
@@ -40,12 +44,17 @@
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
       "shortcutName": "FarmaStock",
-      "installerLanguages": ["es-ES"],
+      "installerLanguages": [
+        "es-ES"
+      ],
       "language": "3082"
     }
   },
   "devDependencies": {
     "electron": "^31.0.0",
     "electron-builder": "^25.0.0"
+  },
+  "dependencies": {
+    "xlsx": "^0.18.5"
   }
 }
