@@ -38,15 +38,15 @@ function buildMenu() {
       label: 'Archivo',
       submenu: [
         {
-          label: 'Exportar copia de seguridad…',
-          accelerator: 'CmdOrCtrl+E',
+          label: 'Guardar copia de seguridad…',
+          accelerator: 'CmdOrCtrl+S',
           click: () => mainWindow.webContents.executeJavaScript('exportData()'),
         },
         {
-          label: 'Importar copia de seguridad…',
-          accelerator: 'CmdOrCtrl+I',
+          label: 'Restaurar copia de seguridad…',
+          accelerator: 'CmdOrCtrl+O',
           click: () => mainWindow.webContents.executeJavaScript(
-            'document.getElementById("fi").click()'
+            'document.getElementById("ifi").click()'
           ),
         },
         { type: 'separator' },

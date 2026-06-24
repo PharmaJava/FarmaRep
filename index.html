@@ -91,6 +91,12 @@ header{background:var(--accent);color:#fff;padding:0 20px;height:54px;display:fl
 .bc:hover{background:var(--hi2);color:var(--accent);border-color:var(--accent2)}
 .bc.del:hover{background:var(--red-bg);color:var(--red);border-color:var(--red)}
 .bc.mv:hover{background:var(--yellow-bg);color:var(--yellow);border-color:#d97706}
+.exp-badge{display:inline-block;font-size:.62rem;font-family:'IBM Plex Mono',monospace;border-radius:3px;padding:1px 5px;margin-top:2px;font-weight:500}
+.exp-ok{background:#e6f5ef;color:#0d7a4e;border:1px solid #a7d3b8}
+.exp-soon{background:var(--yellow-bg);color:var(--yellow);border:1px solid #fcd34d}
+.exp-red{background:var(--red-bg);color:var(--red);border:1px solid #fca5a5}
+.ic.exp-warn{border-left:3px solid #f59e0b}
+.ic.exp-caducado{border-left:3px solid var(--red)}
 .ice{display:none;padding:10px;background:#f0f7ff;border-top:1.5px solid #bfdbfe}
 .ice.vis{display:block}
 .iet{font-size:.63rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--accent2);margin-bottom:7px}
@@ -205,8 +211,8 @@ header{background:var(--accent);color:#fff;padding:0 20px;height:54px;display:fl
     <button class="hbtn" onclick="toast('🎯 CONTROLES:\n▪ Click derecho en zona = Editar\n▪ Arrastra zona = Mover\n▪ Botón ? = Esta ayuda','')">? Ayuda</button>
     <button class="hbtn" onclick="exportZoneConfig()" title="Guardar solo configuración de zonas">🎨 Zonas</button>
     <button class="hbtn xls" onclick="document.getElementById('ifx').click()">&#8659; Desde Excel</button>
-    <button class="hbtn" onclick="exportData()">&#11015; Exportar</button>
-    <button class="hbtn imp" onclick="document.getElementById('ifi').click()">&#11014; Importar</button>
+    <button class="hbtn" onclick="exportData()" title="Guarda copia de seguridad completa (stock + zonas + mapa)" style="background:rgba(13,122,78,.3);border-color:rgba(13,122,78,.5)">💾 Guardar copia</button>
+    <button class="hbtn imp" onclick="document.getElementById('ifi').click()" title="Restaurar desde una copia de seguridad JSON">📂 Restaurar copia</button>
     <input type="file" id="ifi" accept=".json" onchange="importData(event)">
     <input type="file" id="ifx" accept=".xls,.xlsx,.csv" onchange="openXlsModal(event)">
   </div>
@@ -300,6 +306,10 @@ header{background:var(--accent);color:#fff;padding:0 20px;height:54px;display:fl
         <div class="fr"><input type="text" id="iname" placeholder="Nombre del articulo" autocomplete="off"></div>
         <div class="fr">
           <input type="text" id="icode" placeholder="Codigo Nacional (opcional)" autocomplete="off" maxlength="20">
+        </div>
+        <div class="fr">
+          <input type="date" id="iexpiry" title="Fecha de caducidad (opcional)" style="flex:1;font-family:'IBM Plex Mono',monospace;font-size:.75rem;padding:5px 8px;border:1.5px solid #a7d3b8;border-radius:var(--r);background:#fff;color:var(--text);outline:none;min-width:0;transition:border-color .15s">
+          <label style="font-size:.65rem;color:var(--text3);align-self:center;white-space:nowrap">Caducidad (opcional)</label>
           <button class="badd" onclick="addItem()">Anadir</button>
         </div>
       </div>
@@ -580,13 +590,15 @@ function renderZone(){
   if(!items.length){il.innerHTML='<div class="imt">Sin articulos en esta zona.<br>Anade el primero.</div>';return}
   items.forEach(function(item){
     var id=item._id;
+    var es=expiryStatus(item.expiry);
     var d=document.createElement('div');
-    d.className='ic';
+    d.className='ic'+(es&&es.card?' '+es.card:'');
     d.innerHTML=
       '<div class="icv">'+
         '<div class="ii">'+
           '<div class="in">'+eh(item.name)+'</div>'+
           '<div class="ico">'+(item.code?'CN: '+eh(item.code):'<em style="color:#bbb">Sin codigo</em>')+'</div>'+
+          (es?'<div><span class="exp-badge '+es.cls+'">'+eh(es.text)+'</span></div>':'')+''+
         '</div>'+
         '<div class="ca">'+
           '<button class="bc" data-a="edit" data-id="'+id+'" title="Editar">&#9999;</button>'+
@@ -599,6 +611,10 @@ function renderZone(){
         '<div class="er"><input type="text" id="en-'+id+'" value="'+ea(item.name)+'" placeholder="Nombre"></div>'+
         '<div class="er">'+
           '<input type="text" id="ec-'+id+'" value="'+ea(item.code||'')+'" placeholder="CN (opcional)" maxlength="20">'+
+        '</div>'+
+        '<div class="er" style="align-items:center;gap:8px">'+
+          '<label style="font-size:.65rem;color:var(--text3);white-space:nowrap;flex-shrink:0">Caducidad:</label>'+
+          '<input type="date" id="ee-'+id+'" value="'+ea(item.expiry||'')+'" style="flex:1;font-family:\'IBM Plex Mono\',monospace;font-size:.75rem;padding:4px 7px;border:1.5px solid var(--border);border-radius:var(--r);background:#fff;color:var(--text);outline:none;min-width:0">'+
           '<button class="bse" data-a="save" data-id="'+id+'">Guardar</button>'+
           '<button class="bce" data-a="cancel" data-id="'+id+'">&#10005;</button>'+
         '</div>'+
@@ -633,19 +649,36 @@ document.querySelectorAll('.zone-rect').forEach(function(r){
   });
 });
 
+/* ── Caducidades ── */
+function fmtDate(iso){
+  if(!iso)return '';
+  try{var d=new Date(iso);return d.toLocaleDateString('es-ES',{day:'2-digit',month:'2-digit',year:'numeric'})}catch(e){return iso}
+}
+function expiryStatus(expiry){
+  if(!expiry)return null;
+  var d=new Date(expiry);var now=new Date();now.setHours(0,0,0,0);d.setHours(0,0,0,0);
+  var diff=Math.floor((d-now)/86400000);
+  if(diff<0)return{cls:'exp-red',card:'exp-caducado',text:'Caducado '+fmtDate(expiry)};
+  if(diff===0)return{cls:'exp-soon',card:'exp-warn',text:'Caduca HOY'};
+  if(diff<=30)return{cls:'exp-soon',card:'exp-warn',text:'Caduca en '+diff+'d ('+fmtDate(expiry)+')'};
+  return{cls:'exp-ok',card:'',text:'Cad: '+fmtDate(expiry)};
+}
+
 function addItem(){
   if(!sel)return;
   var name=document.getElementById('iname').value.trim();
   var code=document.getElementById('icode').value.trim();
+  var expiry=document.getElementById('iexpiry').value;
   if(!name){toast('Introduce el nombre del articulo','err');return}
   if(enEstaZona(name,sel,null)){toast('"'+name+'" ya existe en esta zona','err');return}
   if(contarZonasNombre(name,null)>=2){toast('"'+name+'" ya esta en 2 zonas (maximo permitido)','err');return}
   if(code&&contarZonasCodigo(code,null)>=2){toast('CN '+code+' ya esta en 2 zonas (maximo permitido)','err');return}
   if(!db[sel])db[sel]=[];
-  db[sel].push({_id:uid(),name:name,code:code});
+  db[sel].push({_id:uid(),name:name,code:code,expiry:expiry||''});
   saveDB();
   document.getElementById('iname').value='';
   document.getElementById('icode').value='';
+  document.getElementById('iexpiry').value='';
   toast('Anadido a Zona '+sel,'ok');
   renderMap();renderZone();
 }
@@ -664,6 +697,8 @@ function closeEdit(id){
 function saveEdit(id){
   var name=document.getElementById('en-'+id).value.trim();
   var code=document.getElementById('ec-'+id).value.trim();
+  var expiryEl=document.getElementById('ee-'+id);
+  var expiry=expiryEl?expiryEl.value:'';
   if(!name){toast('El nombre no puede estar vacio','err');return}
   var dn=dupName(name,id);
   if(dn){toast('"'+dn.item.name+'" ya existe en Zona '+dn.zone,'err');return}
@@ -671,7 +706,7 @@ function saveEdit(id){
   if(dc){toast('CN '+code+' ya esta en Zona '+dc.zone+': '+dc.item.name,'err');return}
   var f=byId(id);
   if(!f)return;
-  db[f.zone][f.idx]={_id:id,name:name,code:code};
+  db[f.zone][f.idx]={_id:id,name:name,code:code,expiry:expiry||''};
   saveDB();toast('Articulo actualizado','ok');renderMap();renderZone();
 }
 
@@ -1113,11 +1148,18 @@ function doSearch(){
 document.getElementById('si').addEventListener('keydown',function(e){if(e.key==='Enter')doSearch()});
 
 function exportData(){
-  var p={_farmastock:true,_v:'1.4',_d:new Date().toISOString(),zones:db,zoneConfigs:zones};
+  var p={
+    _farmastock:true,_v:'1.5',_d:new Date().toISOString(),
+    zones:db,
+    zoneConfigs:zones,
+    mapConfig:loadMapConfig()||null
+  };
   var b=new Blob([JSON.stringify(p,null,2)],{type:'application/json'});
   var u=URL.createObjectURL(b);
-  var a=document.createElement('a');a.href=u;a.download='farmastock-'+new Date().toISOString().slice(0,10)+'.json';a.click();URL.revokeObjectURL(u);
-  toast('Exportado correctamente (incluye configuración de zonas)','ok');
+  var a=document.createElement('a');a.href=u;a.download='farmastock-copia-'+new Date().toISOString().slice(0,10)+'.json';a.click();URL.revokeObjectURL(u);
+  // Guardar también una copia rápida en localStorage (recuperación de emergencia)
+  try{localStorage.setItem('farmastock_last_backup',JSON.stringify({_d:new Date().toISOString(),zones:db}))}catch(e){}
+  toast('Copia de seguridad guardada (stock + zonas + mapa)','ok');
 }
 
 function exportZoneConfig(){
@@ -1169,13 +1211,24 @@ function importData(ev){
       }
       var cur=Object.values(db).reduce(function(a,x){return a+x.length},0);
       var imp=Object.values(inc).reduce(function(a,x){return a+x.length},0);
-      if(!confirm('Importar? Reemplaza el inventario actual ('+cur+' articulos) con '+imp+' articulos del archivo.'))return;
+      var hasMap=p._farmastock&&p.mapConfig&&p.mapConfig.zones&&p.mapConfig.zones.length;
+      var msg='Restaurar copia de seguridad?\n\n'+
+        '• '+imp+' articulos en el archivo\n'+
+        '• '+cur+' articulos actuales (se sobreescribiran)\n'+
+        (p.zoneConfigs?'• Incluye configuracion de zonas\n':'')+
+        (hasMap?'• Incluye mapa personalizado (se recargara la pagina)\n':'');
+      if(!confirm(msg))return;
       db=inc;
-      // Importar configuración de zonas si está disponible
-      if(p._farmastock&&p.zoneConfigs){
-        zones=p.zoneConfigs;
+      if(p._farmastock&&p.zoneConfigs)zones=p.zoneConfigs;
+      saveDB();saveZones();sel=null;
+      if(hasMap){
+        saveMapConfig(p.mapConfig);
+        toast(imp+' articulos restaurados. Recargando...','ok');
+        setTimeout(function(){location.reload()},800);
+        return;
       }
-      saveDB();saveZones();sel=null;applyZoneConfigs();renderMap();renderZone();toast(imp+' articulos importados','ok');
+      applyZoneConfigs();renderMap();renderZone();
+      toast(imp+' articulos restaurados','ok');
     }catch(err){toast('Error: '+err.message,'err')}
     ev.target.value='';
   };
@@ -1198,6 +1251,7 @@ var xlsState={
   headers:[],
   colName:-1,
   colCode:-1,
+  colExpiry:-1,
   articles:[],
   fname:''
 };
@@ -1219,11 +1273,12 @@ function openXlsModal(ev){
       xlsState.rows=raw;
       xlsState.headers=raw[0].map(function(c,i){return String(c).trim()||'Col '+(i+1)});
       xlsState.articles=[];
-      xlsState.colName=-1;xlsState.colCode=-1;
+      xlsState.colName=-1;xlsState.colCode=-1;xlsState.colExpiry=-1;
       xlsState.headers.forEach(function(h,i){
         var hl=h.toLowerCase();
         if(xlsState.colName===-1&&(hl.indexOf('denominacion')!==-1||hl.indexOf('descripcion')!==-1||hl.indexOf('nombre')!==-1||hl.indexOf('articulo')!==-1||hl.indexOf('product')!==-1))xlsState.colName=i;
         if(xlsState.colCode===-1&&(hl.indexOf('codigo')!==-1||hl.indexOf('cod')!==-1||hl===('cn')||hl.indexOf('ean')!==-1||hl.indexOf('referencia')!==-1))xlsState.colCode=i;
+        if(xlsState.colExpiry===-1&&(hl.indexOf('caducidad')!==-1||hl.indexOf('caducid')!==-1||hl.indexOf('cad')===0||hl==='fecha'||hl.indexOf('expir')!==-1||hl.indexOf('venc')!==-1))xlsState.colExpiry=i;
       });
       document.getElementById('xls-fname').textContent=xlsState.fname+' · '+(raw.length-1)+' filas';
       document.getElementById('mxls').classList.add('act');
@@ -1242,15 +1297,32 @@ function openXlsModal(ev){
 function closeXlsModal(){document.getElementById('mxls').classList.remove('act')}
 document.getElementById('mxls').addEventListener('click',function(e){if(e.target===this)closeXlsModal()});
 
+function xlsParseDate(raw){
+  if(!raw)return '';
+  var s=String(raw).trim();
+  if(!s)return '';
+  // Número serial Excel → fecha JS
+  if(/^\d+$/.test(s)){
+    var n=parseInt(s);
+    if(n>40000&&n<60000){var d=new Date((n-25569)*86400000);return d.toISOString().slice(0,10)}
+  }
+  // dd/mm/yyyy o dd-mm-yyyy
+  var m=s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/);
+  if(m){var y=m[3].length===2?'20'+m[3]:m[3];var iso=y+'-'+m[2].padStart(2,'0')+'-'+m[1].padStart(2,'0');if(!isNaN(new Date(iso).getTime()))return iso;}
+  // yyyy-mm-dd
+  if(/^\d{4}-\d{2}-\d{2}$/.test(s)&&!isNaN(new Date(s).getTime()))return s;
+  return '';
+}
+
 function xlsParsearArticulos(){
   var rows=xlsState.rows.slice(1);
   xlsState.articles=rows.map(function(r){
     var name=String(r[xlsState.colName]||'').trim();
     var code=xlsState.colCode>=0?String(r[xlsState.colCode]||'').trim():'';
+    var expiry=xlsState.colExpiry>=0?xlsParseDate(r[xlsState.colExpiry]):'';
     if(!name)return null;
-    // solo marcar dup si YA hay 2 zonas con ese nombre (no se puede añadir más)
     var bloqueado=(contarZonasNombre(name,null)>=2)||(code&&contarZonasCodigo(code,null)>=2);
-    return{name:name,code:code,dup:bloqueado?{zone:'máx'}:null,zona:'',zona2:''};
+    return{name:name,code:code,expiry:expiry,dup:bloqueado?{zone:'máx'}:null,zona:'',zona2:''};
   }).filter(Boolean);
 }
 
@@ -1286,15 +1358,17 @@ function renderScreenCols(scr,msg,btnNext){
       '<div class="xcol-t">Asignar columnas</div>'+
       '<div class="xcol-row"><label>Nombre del artículo *</label><select id="xsel-name" onchange="xlsColsChange()">'+mkOpts(xlsState.colName,false)+'</select></div>'+
       '<div class="xcol-row"><label>Código (CN, EAN…)</label><select id="xsel-code" onchange="xlsColsChange()">'+mkOpts(xlsState.colCode,true)+'</select></div>'+
+      '<div class="xcol-row"><label>Fecha de caducidad</label><select id="xsel-expiry" onchange="xlsColsChange()">'+mkOpts(xlsState.colExpiry,true)+'</select></div>'+
     '</div>'+
-    '<p style="font-size:.74rem;color:var(--text3)">El código es opcional.</p>'+
+    '<p style="font-size:.74rem;color:var(--text3)">El código y la caducidad son opcionales.</p>'+
     '</div>';
   xlsColsChange();
 }
 window.xlsColsChange=function(){
   var n=parseInt(document.getElementById('xsel-name').value);
   var c=parseInt(document.getElementById('xsel-code').value);
-  xlsState.colName=n;xlsState.colCode=c;
+  var ex=document.getElementById('xsel-expiry')?parseInt(document.getElementById('xsel-expiry').value):-1;
+  xlsState.colName=n;xlsState.colCode=c;xlsState.colExpiry=ex;
   var ok=n>=0;
   document.getElementById('xbtn-next').disabled=!ok;
   document.getElementById('xls-footer-msg').textContent=ok?xlsState.headers[n]+' seleccionada como nombre':'Selecciona la columna de nombre';
@@ -1327,10 +1401,12 @@ function renderScreenTable(scr,msg,btnNext){
     if(filterQ&&a.name.toLowerCase().indexOf(filterQ)===-1&&a.code.toLowerCase().indexOf(filterQ)===-1)return;
     shown++;
     var isDup=!!a.dup;
+    var es=expiryStatus(a.expiry);
     rows+=
       '<tr'+(isDup?' class="xdup-row"':'')+'>'+
         '<td class="xtd-name">'+eh(a.name)+(isDup?'<span class="xdup-tag">Ya existe · Zona '+eh(a.dup.zone)+'</span>':'')+'</td>'+
         '<td class="xtd-code">'+(a.code?eh(a.code):'\u2013')+'</td>'+
+        '<td style="font-size:.72rem;font-family:\'IBM Plex Mono\',monospace;white-space:nowrap">'+(es?'<span class="exp-badge '+es.cls+'">'+eh(es.text)+'</span>':(a.expiry?eh(a.expiry):'–'))+'</td>'+
         '<td class="xtd-zona" style="width:110px">'+(isDup?'<span style="font-size:.72rem;color:var(--text3);font-style:italic">Se omitirá</span>':mkSel(i,'zona',a.zona))+'</td>'+
         '<td class="xtd-zona" style="width:110px">'+(isDup?'':mkSel(i,'zona2',a.zona2))+'</td>'+
       '</tr>';
@@ -1343,6 +1419,7 @@ function renderScreenTable(scr,msg,btnNext){
         '<thead><tr>'+
           '<th>Artículo</th>'+
           '<th>Código Nacional</th>'+
+          '<th>Caducidad</th>'+
           '<th>Zona 1</th>'+
           '<th>Zona 2 (opcional)</th>'+
         '</tr></thead>'+
@@ -1399,6 +1476,7 @@ function xlsNext(){
   if(xlsState.screen==='cols'){
     xlsState.colName=parseInt(document.getElementById('xsel-name').value);
     xlsState.colCode=parseInt(document.getElementById('xsel-code').value);
+    var exEl=document.getElementById('xsel-expiry');xlsState.colExpiry=exEl?parseInt(exEl.value):-1;
     xlsParsearArticulos();
     xlsState.screen='table';
     xlsRender();
@@ -1417,14 +1495,14 @@ function xlsCommit(){
     // zona 1
     if(contarZonasNombre(a.name,null)<2&&!enEstaZona(a.name,a.zona,null)){
       if(!db[a.zona])db[a.zona]=[];
-      db[a.zona].push({_id:uid(),name:a.name,code:a.code||''});
+      db[a.zona].push({_id:uid(),name:a.name,code:a.code||'',expiry:a.expiry||''});
       added++;
     }else{skipped++;return}
     // zona 2 opcional
     if(a.zona2&&a.zona2!==a.zona){
       if(contarZonasNombre(a.name,null)<2&&!enEstaZona(a.name,a.zona2,null)){
         if(!db[a.zona2])db[a.zona2]=[];
-        db[a.zona2].push({_id:uid(),name:a.name,code:a.code||''});
+        db[a.zona2].push({_id:uid(),name:a.name,code:a.code||'',expiry:a.expiry||''});
         added++;
       }
     }
