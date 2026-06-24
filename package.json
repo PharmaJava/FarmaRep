@@ -1,0 +1,51 @@
+{
+  "name": "farmastock",
+  "version": "1.3.0",
+  "description": "Gestión visual de inventario para almacén farmacéutico",
+  "main": "electron/main.js",
+  "scripts": {
+    "start": "electron .",
+    "build:win": "electron-builder --win --x64",
+    "build:win32": "electron-builder --win --ia32",
+    "build": "electron-builder --win"
+  },
+  "build": {
+    "appId": "com.pharmajava.farmastock",
+    "productName": "FarmaStock",
+    "copyright": "Copyright © 2025 PharmaJava",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "electron/**/*",
+      "index.html",
+      "farmacia-almacen.html"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        },
+        {
+          "target": "portable",
+          "arch": ["x64"]
+        }
+      ],
+      "icon": "electron/assets/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "FarmaStock",
+      "installerLanguages": ["es-ES"],
+      "language": "3082"
+    }
+  },
+  "devDependencies": {
+    "electron": "^31.0.0",
+    "electron-builder": "^25.0.0"
+  }
+}

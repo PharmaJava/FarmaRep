@@ -1,0 +1,56 @@
+name: Build FarmaStock .exe
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install Python + cairosvg (para generar icono)
+        run: |
+          pip install cairosvg pillow
+        shell: bash
+
+      - name: Generate icon.ico from SVG
+        run: python electron/assets/generate-icon.py
+        shell: bash
+        working-directory: ${{ github.workspace }}
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Build Windows installer
+        run: npm run build:win
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: FarmaStock-Windows
+          path: |
+            dist/*.exe
+            dist/latest.yml
+          retention-days: 30
+
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/*.exe
+          generate_release_notes: true
