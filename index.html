@@ -9,7 +9,7 @@
 <style>
 :root{--bg:#f0f2f5;--surface:#fff;--border:#c8cfd8;--accent:#1a3a5c;--accent2:#2563a8;--hi:#e8f0fc;--hi2:#d0e4ff;--green:#0d7a4e;--green-bg:#e6f5ef;--red:#b91c1c;--red-bg:#fee2e2;--yellow:#92400e;--yellow-bg:#fef3c7;--text:#1a2433;--text2:#4a5568;--text3:#8a9ab0;--ze:#f7f9fc;--zh:#dbeafe;--za:#bfdbfe;--zf:#dcfce7;--r:6px;--sh:0 2px 8px rgba(26,58,92,.10);--shl:0 8px 32px rgba(26,58,92,.18)}
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'IBM Plex Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;flex-direction:column}
+body{font-family:'IBM Plex Sans',sans-serif;background:var(--bg);color:var(--text);height:100vh;overflow:hidden;display:flex;flex-direction:column}
 header{background:var(--accent);color:#fff;padding:0 20px;height:54px;display:flex;align-items:center;gap:14px;box-shadow:0 2px 8px rgba(0,0,0,.18);position:sticky;top:0;z-index:200}
 .logo{font-family:'IBM Plex Mono',monospace;font-size:1.05rem;font-weight:600;letter-spacing:.08em;white-space:nowrap}
 .logo span{color:#7ab8f5}
@@ -23,12 +23,12 @@ header{background:var(--accent);color:#fff;padding:0 20px;height:54px;display:fl
 .hbtn.xls:hover{background:rgba(13,122,78,.55)}
 #ifi{display:none}
 #ifx{display:none}
-.layout{display:grid;grid-template-columns:1fr 390px;flex:1;min-height:0}
-.mapp{padding:22px 18px 22px 22px;display:flex;flex-direction:column;gap:12px}
+.layout{display:grid;grid-template-columns:1fr 390px;flex:1;min-height:0;overflow:hidden}
+.mapp{padding:18px 18px 18px 22px;display:flex;flex-direction:column;gap:10px;min-height:0;overflow:hidden}
 .ptitle{font-size:.67rem;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--text3);display:flex;align-items:center;gap:8px}
 .ptitle::after{content:'';flex:1;height:1px;background:var(--border)}
-.wc{background:var(--surface);border:2px solid var(--border);border-radius:10px;box-shadow:var(--sh);padding:14px}
-.wsvg{width:100%;height:auto;display:block}
+.wc{background:var(--surface);border:2px solid var(--border);border-radius:10px;box-shadow:var(--sh);padding:14px;flex:1;min-height:0;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.wsvg{display:block;height:100%;width:auto;max-width:100%;aspect-ratio:620/800;margin:auto}
 .zone-rect{fill:var(--ze);stroke:var(--accent);stroke-width:1.5;cursor:grab;transition:fill .15s,stroke-width .15s,filter .15s;user-select:none}
 .zone-rect:hover{fill:var(--zh);stroke-width:2.5;filter:drop-shadow(0 4px 8px rgba(26,58,92,.15))}
 .zone-rect:active{cursor:grabbing;filter:drop-shadow(0 8px 16px rgba(26,58,92,.25))}
@@ -40,7 +40,10 @@ header{background:var(--accent);color:#fff;padding:0 20px;height:54px;display:fl
 .zlbl{font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:600;fill:var(--accent);text-anchor:middle;dominant-baseline:middle;pointer-events:none;user-select:none}
 .zcnt{font-family:'IBM Plex Sans',sans-serif;font-size:8px;fill:var(--green);text-anchor:middle;dominant-baseline:middle;pointer-events:none;user-select:none}
 .caslbl{font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:500;fill:var(--accent);writing-mode:tb;text-anchor:middle;pointer-events:none;letter-spacing:.12em}
-.legend{display:flex;gap:12px;flex-wrap:wrap}
+.legend{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+.map-tools{margin-left:auto;display:flex;gap:6px}
+.mtbtn{background:var(--accent);color:#fff;border:none;border-radius:var(--r);padding:5px 11px;font-size:.72rem;font-family:'IBM Plex Sans',sans-serif;font-weight:500;cursor:pointer;transition:background .15s;white-space:nowrap}
+.mtbtn:hover{background:var(--accent2)}
 .li{display:flex;align-items:center;gap:5px;font-size:.68rem;color:var(--text2)}
 .ld{width:13px;height:13px;border-radius:3px;border:1.5px solid var(--accent)}
 .ld.e{background:var(--ze)}
@@ -198,6 +201,16 @@ header{background:var(--accent);color:#fff;padding:0 20px;height:54px;display:fl
 .stat-label{color:var(--text3);font-size:.65rem;text-transform:uppercase;letter-spacing:.05em}
 .stat-zone-list{display:flex;gap:4px;flex-wrap:wrap;justify-content:center;margin-top:6px}
 .stat-zone-tag{background:var(--accent);color:#fff;border-radius:3px;padding:2px 6px;font-size:.65rem;font-weight:600}
+@media print{
+  header,.sidebar,#toast,.mo,.map-tools{display:none!important}
+  body{height:auto!important;overflow:visible!important;display:block!important}
+  .layout{display:block!important;height:auto!important;overflow:visible!important}
+  .mapp{display:block!important;height:auto!important;overflow:visible!important;padding:0!important}
+  .wc{flex:none!important;border:none!important;box-shadow:none!important;padding:0!important;display:block!important;overflow:visible!important}
+  .wsvg{height:auto!important;width:100%!important;max-width:100%!important;aspect-ratio:620/800!important}
+  .ptitle{margin:0 0 6px!important}.legend{margin:0 0 10px!important}
+  @page{size:auto;margin:12mm}
+}
 </style>
 </head>
 <body>
@@ -225,6 +238,10 @@ header{background:var(--accent);color:#fff;padding:0 20px;height:54px;display:fl
       <div class="li"><div class="ld e"></div>Vacia</div>
       <div class="li"><div class="ld f"></div>Con articulos</div>
       <div class="li"><div class="ld s"></div>Seleccionada</div>
+      <div class="map-tools">
+        <button class="mtbtn" onclick="copyMapImage()" title="Copiar el plano como imagen para pegarlo en Word, correo, WhatsApp, etc.">📋 Copiar mapa</button>
+        <button class="mtbtn" onclick="printMap()" title="Imprimir el plano del almacen">🖨️ Imprimir</button>
+      </div>
     </div>
     <div class="wc">
       <svg class="wsvg" viewBox="0 0 620 800" xmlns="http://www.w3.org/2000/svg">
@@ -1131,6 +1148,78 @@ function updateStats(){
   document.getElementById('stat-total').textContent=total;
   document.getElementById('stat-zones').textContent=zones.size;
 }
+
+/* ─── Copiar / Imprimir mapa ─── */
+function buildMapSvgString(){
+  var svg=document.querySelector('.wsvg');
+  var clone=svg.cloneNode(true);
+  // Las clases CSS y variables no viajan dentro de una imagen SVG: copiamos
+  // los estilos calculados (color real, grosor, fuente) a estilo en linea.
+  (function inl(src,dst){
+    if(src.nodeName==='rect'||src.nodeName==='text'){
+      var cs=getComputedStyle(src);
+      ['fill','stroke','stroke-width','opacity','font-family','font-size','font-weight','text-anchor','dominant-baseline'].forEach(function(p){
+        var v=cs.getPropertyValue(p);
+        if(v)dst.style.setProperty(p,v);
+      });
+    }
+    var sc=src.children,dc=dst.children;
+    for(var i=0;i<sc.length;i++)inl(sc[i],dc[i]);
+  })(svg,clone);
+  var vb=svg.viewBox.baseVal;
+  clone.setAttribute('width',vb.width);
+  clone.setAttribute('height',vb.height);
+  clone.setAttribute('xmlns','http://www.w3.org/2000/svg');
+  return{str:new XMLSerializer().serializeToString(clone),w:vb.width,h:vb.height};
+}
+
+function mapToCanvas(cb){
+  var m=buildMapSvgString();
+  var scale=2; // x2 para una imagen nitida
+  var img=new Image();
+  img.onload=function(){
+    var c=document.createElement('canvas');
+    c.width=m.w*scale;c.height=m.h*scale;
+    var ctx=c.getContext('2d');
+    ctx.fillStyle='#ffffff';ctx.fillRect(0,0,c.width,c.height);
+    ctx.drawImage(img,0,0,c.width,c.height);
+    cb(c);
+  };
+  img.onerror=function(){cb(null)};
+  img.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(m.str);
+}
+
+function downloadCanvas(c){
+  c.toBlob(function(b){
+    var u=URL.createObjectURL(b);
+    var a=document.createElement('a');a.href=u;a.download='farmastock-mapa-'+new Date().toISOString().slice(0,10)+'.png';a.click();
+    URL.revokeObjectURL(u);
+    toast('Mapa guardado como imagen PNG','ok');
+  },'image/png');
+}
+
+function copyMapImage(){
+  mapToCanvas(function(c){
+    if(!c){toast('No se pudo generar la imagen del mapa','err');return}
+    // 1) Electron nativo (lo mas fiable en la app instalada)
+    if(window.electronApp&&electronApp.copyImage){
+      try{electronApp.copyImage(c.toDataURL('image/png'));toast('Mapa copiado al portapapeles','ok');return}catch(e){}
+    }
+    // 2) API de portapapeles del navegador
+    if(navigator.clipboard&&window.ClipboardItem){
+      c.toBlob(function(b){
+        navigator.clipboard.write([new ClipboardItem({'image/png':b})])
+          .then(function(){toast('Mapa copiado al portapapeles','ok')})
+          .catch(function(){downloadCanvas(c)});
+      },'image/png');
+      return;
+    }
+    // 3) Respaldo: descargar PNG
+    downloadCanvas(c);
+  });
+}
+
+function printMap(){window.print()}
 
 function doSearch(){
   var q=document.getElementById('si').value.trim().toLowerCase();
