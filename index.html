@@ -4,8 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>FarmaStock - Control de Almacen</title>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<link href="vendor/fonts/fonts.css" rel="stylesheet">
+<script src="vendor/xlsx.full.min.js"></script>
 <style>
 :root{--bg:#f0f2f5;--surface:#fff;--border:#c8cfd8;--accent:#1a3a5c;--accent2:#2563a8;--hi:#e8f0fc;--hi2:#d0e4ff;--green:#0d7a4e;--green-bg:#e6f5ef;--red:#b91c1c;--red-bg:#fee2e2;--yellow:#92400e;--yellow-bg:#fef3c7;--text:#1a2433;--text2:#4a5568;--text3:#8a9ab0;--ze:#f7f9fc;--zh:#dbeafe;--za:#bfdbfe;--zf:#dcfce7;--r:6px;--sh:0 2px 8px rgba(26,58,92,.10);--shl:0 8px 32px rgba(26,58,92,.18)}
 *{box-sizing:border-box;margin:0;padding:0}
@@ -201,6 +201,7 @@ header{background:var(--accent);color:#fff;padding:0 20px;height:54px;display:fl
   <div class="sub">Control de Almacen</div>
   <div class="hbtns">
     <button class="hbtn" onclick="openNewZone()">➕ Nueva Zona</button>
+    <button class="hbtn" onclick="window.location.href='map-editor.html'" title="Diseñar mapa para otro negocio" style="background:rgba(147,51,234,.25);border-color:rgba(147,51,234,.45)">🗺 Editor Mapa</button>
     <button class="hbtn" onclick="toast('🎯 CONTROLES:\n▪ Click derecho en zona = Editar\n▪ Arrastra zona = Mover\n▪ Botón ? = Esta ayuda','')">? Ayuda</button>
     <button class="hbtn" onclick="exportZoneConfig()" title="Guardar solo configuración de zonas">🎨 Zonas</button>
     <button class="hbtn xls" onclick="document.getElementById('ifx').click()">&#8659; Desde Excel</button>
@@ -413,6 +414,7 @@ header{background:var(--accent);color:#fff;padding:0 20px;height:54px;display:fl
 <script>
 var SK='farmastock_v1';
 var ZK='farmastock_zones_v1';
+var MK='farmastock_map_config';
 var AZ=['1','2','3','4','5','5b','6','6.2','7','7b','8','9','10','11','12','13','14','15','16','17','18','19','20','21','22','23'];
 var db=loadDB();
 var zones=loadZones();
@@ -427,6 +429,82 @@ function saveZones(){try{localStorage.setItem(ZK,JSON.stringify(zones))}catch(e)
 function loadDB(){try{var r=localStorage.getItem(SK);if(r)return JSON.parse(r)}catch(e){}return{}}
 function saveDB(){try{localStorage.setItem(SK,JSON.stringify(db))}catch(e){}}
 function gz(z){return db[z]||[]}
+
+/* ─── Mapa personalizado ─── */
+function loadMapConfig(){try{var r=localStorage.getItem(MK);if(r)return JSON.parse(r)}catch(e){}return null}
+function saveMapConfig(cfg){try{localStorage.setItem(MK,JSON.stringify(cfg))}catch(e){}}
+
+function injectZoneToSVG(svg,z){
+  var rect=document.createElementNS('http://www.w3.org/2000/svg','rect');
+  rect.setAttribute('class','zone-rect');
+  rect.setAttribute('id','zone-'+z.id);
+  rect.setAttribute('data-zone',z.id);
+  rect.setAttribute('x',z.x);rect.setAttribute('y',z.y);
+  rect.setAttribute('width',z.w);rect.setAttribute('height',z.h);
+  rect.setAttribute('rx','3');
+  if(z.color)rect.setAttribute('fill',z.color);
+  var lbl=document.createElementNS('http://www.w3.org/2000/svg','text');
+  lbl.setAttribute('class','zlbl');lbl.setAttribute('data-zone',z.id);
+  lbl.setAttribute('x',z.x+z.w/2);lbl.setAttribute('y',z.y+z.h/2-6);
+  lbl.textContent=z.label||z.id;
+  var cnt=document.createElementNS('http://www.w3.org/2000/svg','text');
+  cnt.setAttribute('class','zcnt');cnt.setAttribute('id','c-'+z.id);
+  cnt.setAttribute('data-zone',z.id);
+  cnt.setAttribute('x',z.x+z.w/2);cnt.setAttribute('y',z.y+z.h/2+8);
+  svg.appendChild(rect);svg.appendChild(lbl);svg.appendChild(cnt);
+  rect.addEventListener('click',function(){
+    sel=z.id;
+    document.getElementById('iname').value='';
+    document.getElementById('icode').value='';
+    document.getElementById('sr').innerHTML='';
+    document.getElementById('si').value='';
+    renderMap();renderZone();
+  });
+  rect.addEventListener('contextmenu',function(e){e.preventDefault();openZoneEdit(z.id)});
+}
+
+function applyCustomMap(){
+  var cfg=loadMapConfig();
+  if(!cfg||!Array.isArray(cfg.zones)||!cfg.zones.length)return;
+  // Título de negocio
+  if(cfg.business){
+    document.title=cfg.business+' — FarmaStock';
+    var logo=document.querySelector('.logo');
+    if(logo)logo.innerHTML='<span>'+cfg.business.replace(/</g,'&lt;')+'</span>';
+  }
+  // Vaciar zonas hardcoded del SVG
+  var svg=document.querySelector('.wsvg');
+  svg.querySelectorAll('.zone-rect,.zlbl,.zcnt').forEach(function(el){el.remove()});
+  AZ.length=0;
+  cfg.zones.forEach(function(z){
+    injectZoneToSVG(svg,z);
+    AZ.push(z.id);
+  });
+}
+
+function exportMapConfig(){
+  var svg=document.querySelector('.wsvg');
+  var zoneList=[];
+  svg.querySelectorAll('.zone-rect').forEach(function(r){
+    var id=r.getAttribute('data-zone');
+    var cfg=zones[id]||{};
+    zoneList.push({
+      id:id,
+      label:document.querySelector('.zlbl[data-zone="'+id+'"]')?document.querySelector('.zlbl[data-zone="'+id+'"]').textContent:id,
+      x:parseFloat(r.getAttribute('x')),y:parseFloat(r.getAttribute('y')),
+      w:parseFloat(r.getAttribute('width')),h:parseFloat(r.getAttribute('height')),
+      color:cfg.color||''
+    });
+  });
+  var existing=loadMapConfig()||{};
+  var out={_farmastock_map:true,_v:'1.0',_d:new Date().toISOString(),
+    business:existing.business||document.title.replace(' — FarmaStock','').replace(' - FarmaStock','').replace('FarmaStock - Control de Almacen',''),
+    zones:zoneList};
+  var b=new Blob([JSON.stringify(out,null,2)],{type:'application/json'});
+  var u=URL.createObjectURL(b);
+  var a=document.createElement('a');a.href=u;a.download='farmastock-mapa-'+new Date().toISOString().slice(0,10)+'.json';a.click();URL.revokeObjectURL(u);
+  toast('Mapa exportado','ok');
+}
 
 function ensureIds(){
   var ch=false;
@@ -1359,6 +1437,7 @@ function xlsCommit(){
   toast(m,'ok');
 }
 
+applyCustomMap();
 ensureIds();
 applyZoneConfigs();
 renderMap();

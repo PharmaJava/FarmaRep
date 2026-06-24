@@ -51,6 +51,17 @@ function buildMenu() {
         },
         { type: 'separator' },
         {
+          label: 'Editor de Mapas',
+          accelerator: 'CmdOrCtrl+M',
+          click: () => mainWindow.loadFile(path.join(__dirname, '..', 'map-editor.html')),
+        },
+        {
+          label: 'Volver al Almacén',
+          accelerator: 'CmdOrCtrl+Shift+M',
+          click: () => mainWindow.loadFile(path.join(__dirname, '..', 'index.html')),
+        },
+        { type: 'separator' },
+        {
           label: 'Salir',
           accelerator: 'Alt+F4',
           role: 'quit',
