@@ -4,6 +4,25 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 
 ---
 
+## [1.5.0] — 2026-06-24
+
+### Añadido
+- **Redimensionar zonas**: al seleccionar una zona del plano aparece un tirador azul en su esquina inferior derecha; arrastrándolo se cambia el tamaño de la zona. El cambio se guarda automáticamente.
+- **Tecla Suprimir**: con una zona seleccionada, pulsar `Supr` la elimina (pide confirmación). No actúa mientras se escribe en un campo o hay un diálogo abierto.
+- El plano completo (posición, tamaño y color de cada zona) se guarda como mapa personalizado, de modo que **crear, borrar, mover y redimensionar zonas ahora persiste al recargar** la aplicación.
+- **Inicio automático con Windows**: la app se registra para arrancar al encender el equipo (activado en la primera ejecución). Se puede activar/desactivar en el menú **Archivo → "Iniciar con Windows"**.
+
+### Corregido
+- **Eliminar una zona no funcionaba**: se borraban los datos pero el rectángulo seguía visible en el plano (y reaparecía al recargar). Ahora la zona se elimina del plano y el cambio se conserva.
+- **Crear una zona nueva no persistía**: la zona desaparecía al recargar la aplicación. Ahora se guarda y queda seleccionada lista para moverla o redimensionarla.
+- Un simple clic en una zona ya no se interpretaba como un arrastre (antes mostraba "Zona reposicionada" en cada clic). Se distingue clic de arrastre mediante un umbral de movimiento.
+- Se eliminó la acumulación de manejadores de eventos en cada redibujado del plano (el menú contextual se gestiona ahora de forma delegada).
+
+### Cambiado
+- El instalador crea acceso directo en el escritorio y en el menú Inicio (ya configurado), y la app queda registrada para iniciarse con Windows.
+
+---
+
 ## [1.4.1] — 2026-06-24
 
 ### Cambiado

@@ -213,4 +213,4 @@ Estas tareas **no** deben paralelizarse porque tienen dependencias entre sí:
 
 ## Versión actual
 
-`v1.4.1` — Plano y panel lateral al 50/50. Incluye plano ajustado a pantalla, Copiar/Imprimir mapa y empaquetado del Editor de Mapas y `vendor/` corregido. Ver `CHANGELOG.md` para historial completo.
+`v1.5.0` — Gestión de zonas mejorada: crear, borrar (botón y tecla `Supr`), mover y **redimensionar** zonas con persistencia real del plano. Inicio automático con Windows (menú Archivo). Mantiene el reparto del plano y panel lateral al 50/50, Copiar/Imprimir mapa y el Editor de Mapas. Ver `CHANGELOG.md` para historial completo.
