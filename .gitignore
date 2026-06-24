@@ -3,4 +3,5 @@ dist/
 *.log
 .DS_Store
 Thumbs.db
+.claude/settings.local.json
 # vendor/ is intentionally committed (offline dependencies — no build step needed)

@@ -1,5 +1,15 @@
-const { app, BrowserWindow, Menu, shell, dialog } = require('electron');
+const { app, BrowserWindow, Menu, shell, dialog, ipcMain, clipboard, nativeImage } = require('electron');
 const path = require('path');
+
+// Copiar imagen al portapapeles del sistema (solicitado desde el renderer).
+ipcMain.handle('copy-image', (event, dataURL) => {
+  try {
+    clipboard.writeImage(nativeImage.createFromDataURL(dataURL));
+    return true;
+  } catch (err) {
+    return false;
+  }
+});
 
 let mainWindow;
 

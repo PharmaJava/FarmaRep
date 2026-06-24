@@ -4,6 +4,22 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 
 ---
 
+## [1.4.0] — 2026-06-24
+
+### Añadido
+- Botón **Copiar mapa**: copia el plano del almacén como imagen PNG al portapapeles para pegarlo en Word, correo, WhatsApp, etc. Usa el portapapeles nativo de Electron en la app de escritorio, con respaldo al portapapeles del navegador y, si no está disponible, descarga el PNG.
+- Botón **Imprimir**: imprime únicamente el plano del almacén mediante estilos `@media print` (oculta cabecera y panel lateral).
+- Puente seguro `copyImage` por IPC en Electron (`preload.js` + `main.js`) para escribir imágenes en el portapapeles del sistema.
+- Campo `author` (PharmaJava) en `package.json` para los metadatos del instalador.
+
+### Cambiado
+- El plano del almacén ahora se ajusta automáticamente al alto de la ventana y se ve completo sin hacer scroll (antes el SVG desbordaba verticalmente).
+
+### Corregido
+- El instalador de Windows no empaquetaba `map-editor.html` ni la carpeta `vendor/` (fuentes e importación de Excel). En la app instalada el **Editor de Mapas** no abría y fallaban las fuentes y la importación desde Excel. Ahora se incluyen en `build.files`.
+
+---
+
 ## [1.3.0] — 2026-04-03
 
 ### Corregido

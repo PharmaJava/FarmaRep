@@ -213,4 +213,4 @@ Estas tareas **no** deben paralelizarse porque tienen dependencias entre sí:
 
 ## Versión actual
 
-`v1.3.0` — Anti-duplicados por `_id` estable. Ver `CHANGELOG.md` para historial completo.
+`v1.4.0` — Plano ajustado a pantalla + Copiar/Imprimir mapa; empaquetado del Editor de Mapas y `vendor/` corregido. Ver `CHANGELOG.md` para historial completo.
