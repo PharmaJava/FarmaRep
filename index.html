@@ -37,6 +37,8 @@ header{background:var(--accent);color:#fff;padding:0 20px;height:54px;display:fl
 .zone-rect.dragging{opacity:.7;stroke-width:2.5}
 .zone-circle{fill:none;stroke:var(--text3);stroke-width:1;pointer-events:none;opacity:.4}
 .zone-circle.resize{cursor:nwse-resize;opacity:1;fill:rgba(26,58,92,.05);stroke:var(--accent);stroke-width:2}
+.resize-handle{fill:var(--accent2);stroke:#fff;stroke-width:1.5;cursor:nwse-resize}
+.resize-handle:hover{fill:var(--accent)}
 .zlbl{font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:600;fill:var(--accent);text-anchor:middle;dominant-baseline:middle;pointer-events:none;user-select:none}
 .zcnt{font-family:'IBM Plex Sans',sans-serif;font-size:8px;fill:var(--green);text-anchor:middle;dominant-baseline:middle;pointer-events:none;user-select:none}
 .caslbl{font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:500;fill:var(--accent);writing-mode:tb;text-anchor:middle;pointer-events:none;letter-spacing:.12em}
@@ -202,7 +204,7 @@ header{background:var(--accent);color:#fff;padding:0 20px;height:54px;display:fl
 .stat-zone-list{display:flex;gap:4px;flex-wrap:wrap;justify-content:center;margin-top:6px}
 .stat-zone-tag{background:var(--accent);color:#fff;border-radius:3px;padding:2px 6px;font-size:.65rem;font-weight:600}
 @media print{
-  header,.sidebar,#toast,.mo,.map-tools{display:none!important}
+  header,.sidebar,#toast,.mo,.map-tools,.resize-handle{display:none!important}
   body{height:auto!important;overflow:visible!important;display:block!important}
   .layout{display:block!important;height:auto!important;overflow:visible!important}
   .mapp{display:block!important;height:auto!important;overflow:visible!important;padding:0!important}
@@ -447,8 +449,6 @@ var db=loadDB();
 var zones=loadZones();
 var sel=null;
 var mid=null;
-var dragZ=null;
-var dragX=0,dragY=0;
 
 function uid(){return Math.random().toString(36).slice(2,10)}
 function loadZones(){try{var r=localStorage.getItem(ZK);if(r)return JSON.parse(r)}catch(e){}return{}}
@@ -479,15 +479,9 @@ function injectZoneToSVG(svg,z){
   cnt.setAttribute('data-zone',z.id);
   cnt.setAttribute('x',z.x+z.w/2);cnt.setAttribute('y',z.y+z.h/2+8);
   svg.appendChild(rect);svg.appendChild(lbl);svg.appendChild(cnt);
-  rect.addEventListener('click',function(){
-    sel=z.id;
-    document.getElementById('iname').value='';
-    document.getElementById('icode').value='';
-    document.getElementById('sr').innerHTML='';
-    document.getElementById('si').value='';
-    renderMap();renderZone();
-  });
-  rect.addEventListener('contextmenu',function(e){e.preventDefault();openZoneEdit(z.id)});
+  // La seleccion, mover, redimensionar y menu contextual se gestionan de forma
+  // delegada en initZoneInteract() para que funcionen con cualquier zona,
+  // incluidas las creadas dinamicamente.
 }
 
 function applyCustomMap(){
@@ -655,16 +649,15 @@ document.getElementById('il').addEventListener('click',function(e){
   else if(a==='cancel')closeEdit(id);
 });
 
-document.querySelectorAll('.zone-rect').forEach(function(r){
-  r.addEventListener('click',function(){
-    sel=r.getAttribute('data-zone');
-    document.getElementById('iname').value='';
-    document.getElementById('icode').value='';
-    document.getElementById('sr').innerHTML='';
-    document.getElementById('si').value='';
-    renderMap();renderZone();
-  });
-});
+/* Selecciona una zona del plano (usado por el sistema delegado de interaccion) */
+function selectZone(z){
+  sel=z;
+  document.getElementById('iname').value='';
+  document.getElementById('icode').value='';
+  document.getElementById('sr').innerHTML='';
+  document.getElementById('si').value='';
+  renderMap();renderZone();
+}
 
 /* ── Caducidades ── */
 function fmtDate(iso){
@@ -861,36 +854,73 @@ function saveZoneConfig(){
   renderMap();
 }
 
-function resizeZone(zoneId,dw,dh){
-  var rect=document.getElementById('zone-'+zoneId);
+/* Recoloca etiquetas, contador y tirador de tamaño tras mover/redimensionar */
+function syncZoneGraphics(id){
+  var rect=document.getElementById('zone-'+id);
   if(!rect)return;
-  var cfg=getZoneConfig(zoneId);
-  var w=parseFloat(rect.getAttribute('width'))+dw;
-  var h=parseFloat(rect.getAttribute('height'))+dh;
-  w=Math.max(30,w);h=Math.max(20,h);
-  rect.setAttribute('width',w);
-  rect.setAttribute('height',h);
-  cfg.w=w;cfg.h=h;
-  saveZones();
-  
-  // Reposicionar textos
   var x=parseFloat(rect.getAttribute('x'));
   var y=parseFloat(rect.getAttribute('y'));
-  document.querySelectorAll('.zlbl[data-zone="'+zoneId+'"]').forEach(function(lbl){
-    lbl.setAttribute('x',x+w/2);
-    lbl.setAttribute('y',y+h/2-6);
+  var w=parseFloat(rect.getAttribute('width'));
+  var h=parseFloat(rect.getAttribute('height'));
+  document.querySelectorAll('.zlbl,.zcnt').forEach(function(el){
+    if(el.getAttribute('data-zone')!==id)return;
+    el.setAttribute('x',x+w/2);
+    el.setAttribute('y',y+h/2+(el.classList.contains('zcnt')?8:-6));
   });
-  document.querySelectorAll('.zcnt[data-zone="'+zoneId+'"]').forEach(function(cnt){
-    cnt.setAttribute('x',x+w/2);
-    cnt.setAttribute('y',y+h/2+8);
+  var handle=document.getElementById('resize-handle');
+  if(handle&&sel===id){handle.setAttribute('x',x+w-6);handle.setAttribute('y',y+h-6);}
+}
+
+/* Muestra el tirador de redimension sobre la esquina de la zona seleccionada */
+function updateResizeHandle(){
+  var svg=document.querySelector('.wsvg');
+  var handle=document.getElementById('resize-handle');
+  var rect=sel?document.getElementById('zone-'+sel):null;
+  if(!rect){if(handle)handle.style.display='none';return;}
+  if(!handle){
+    handle=document.createElementNS('http://www.w3.org/2000/svg','rect');
+    handle.setAttribute('id','resize-handle');
+    handle.setAttribute('class','resize-handle');
+    handle.setAttribute('width',12);handle.setAttribute('height',12);
+    handle.setAttribute('rx',2);
+  }
+  svg.appendChild(handle); // siempre al frente
+  handle.style.display='';
+  var x=parseFloat(rect.getAttribute('x'));
+  var y=parseFloat(rect.getAttribute('y'));
+  var w=parseFloat(rect.getAttribute('width'));
+  var h=parseFloat(rect.getAttribute('height'));
+  handle.setAttribute('x',x+w-6);handle.setAttribute('y',y+h-6);
+}
+
+/* Vuelca el plano actual (posicion, tamaño, color de cada zona) al mapa
+   guardado para que crear/borrar/mover/redimensionar persista al recargar. */
+function persistMap(){
+  var svg=document.querySelector('.wsvg');
+  var zoneList=[];
+  svg.querySelectorAll('.zone-rect').forEach(function(r){
+    var id=r.getAttribute('data-zone');
+    var cfg=zones[id]||{};
+    var lbl=null;
+    document.querySelectorAll('.zlbl').forEach(function(l){if(l.getAttribute('data-zone')===id)lbl=l;});
+    zoneList.push({
+      id:id,
+      label:lbl?lbl.textContent:id,
+      x:parseFloat(r.getAttribute('x')),y:parseFloat(r.getAttribute('y')),
+      w:parseFloat(r.getAttribute('width')),h:parseFloat(r.getAttribute('height')),
+      color:cfg.color||r.getAttribute('fill')||''
+    });
   });
-  toast('Zona redimensionada','ok');
+  var existing=loadMapConfig()||{};
+  saveMapConfig({_farmastock_map:true,_v:'1.0',_d:new Date().toISOString(),
+    business:existing.business||'',zones:zoneList});
 }
 
 function resetZoneLayout(){
   if(!confirm('¿Recargar el layout de zonas a las posiciones originales?'))return;
   zones={};
   saveZones();
+  try{localStorage.removeItem(MK)}catch(e){}  // descartar plano personalizado
   location.reload();
   toast('Layout reestablecido','ok');
 }
@@ -907,25 +937,36 @@ function resetAllData(){
   toast('Todos los datos eliminados','ok');
 }
 
+/* Quita el rectangulo, etiquetas y registro de una zona del plano */
+function removeZoneFromMap(id){
+  var rect=document.getElementById('zone-'+id);
+  if(rect)rect.remove();
+  document.querySelectorAll('.zlbl,.zcnt').forEach(function(el){
+    if(el.getAttribute('data-zone')===id)el.remove();
+  });
+  var i=AZ.indexOf(id);
+  if(i!==-1)AZ.splice(i,1);
+}
+
 function confirmDelZone(){
   if(!currentZoneEdit)return;
-  var items=gz(currentZoneEdit);
+  var id=currentZoneEdit;
+  var items=gz(id);
   if(items.length>0){
-    var msg='Esta zona tiene '+items.length+' artículo'+(items.length!==1?'s':'')+'. ¿Quieres eliminar la zona y todos sus artículos?';
+    var msg='La zona "'+id+'" tiene '+items.length+' artículo'+(items.length!==1?'s':'')+'. ¿Eliminar la zona y todos sus artículos?';
     if(!confirm(msg))return;
   }else{
-    if(!confirm('¿Eliminar la zona '+currentZoneEdit+'?'))return;
+    if(!confirm('¿Eliminar la zona "'+id+'"?'))return;
   }
-  
-  // Eliminar artículos de la zona
-  delete db[currentZoneEdit];
-  // Eliminar configuración de la zona
-  delete zones[currentZoneEdit];
-  // Eliminar de la lista de zonas si es custom
+  // Eliminar datos, configuracion y elementos del plano
+  delete db[id];
+  delete zones[id];
+  removeZoneFromMap(id);
+  if(sel===id)sel=null;
   saveDB();saveZones();
+  persistMap();          // el plano queda guardado para que el borrado persista al recargar
   closeZoneEdit();
-  sel=null;
-  toast('Zona '+currentZoneEdit+' eliminada','ok');
+  toast('Zona '+id+' eliminada','ok');
   renderMap();renderZone();
 }
 
@@ -1005,87 +1046,100 @@ function createNewZone(){
   saveZones();
   AZ.push(id);
   AZ.sort(function(a,b){return a.localeCompare(b,undefined,{numeric:true})});
-  
+
+  persistMap();          // el plano queda guardado para que la zona persista al recargar
   closeNewZone();
-  renderMap();
-  toast('Zona '+id+' creada correctamente','ok');
+  sel=id;                // dejar la nueva zona seleccionada (muestra el tirador de tamaño)
+  renderMap();renderZone();
+  toast('Zona '+id+' creada. Arrastra para moverla o usa el tirador azul para cambiar su tamaño.','ok');
 }
 
 document.getElementById('mnz').addEventListener('click',function(e){if(e.target===this)closeNewZone()});
 
-/* Drag and drop para SVG - Mejorado */
-function initDragDrop(){
+/* ═══════════════════════════════════════════
+   INTERACCION CON EL PLANO
+   Clic = seleccionar · Arrastrar cuerpo = mover · Arrastrar tirador = redimensionar
+   Clic derecho = editar · Supr = borrar zona seleccionada
+   ═══════════════════════════════════════════ */
+var ziState=null;   // estado del arrastre en curso
+function initZoneInteract(){
   var svg=document.querySelector('.wsvg');
-  var isDragging=false;
-  var dragOffset={x:0,y:0};
-  var snapGrid=10; // Snap a grilla de 10px
-  var minBounds={x:5,y:5,maxX:610,maxY:775};
-  
+  var GRID=5, TH=4;  // rejilla y umbral (en coords del viewBox) para distinguir clic de arrastre
+  function pt(e){
+    var r=svg.getBoundingClientRect();var vb=svg.viewBox.baseVal;
+    return{x:(e.clientX-r.left)*(vb.width/r.width),y:(e.clientY-r.top)*(vb.height/r.height)};
+  }
+  function snap(v){return Math.round(v/GRID)*GRID}
+
   svg.addEventListener('mousedown',function(e){
+    if(e.button!==0)return;  // solo boton izquierdo
+    var p=pt(e);
+    // 1) tirador de redimension (solo sobre la zona seleccionada)
+    if(sel&&e.target.closest('.resize-handle')){
+      var rr=document.getElementById('zone-'+sel);
+      if(!rr)return;
+      ziState={mode:'resize',rect:rr,zone:sel,sx:p.x,sy:p.y,
+        ow:parseFloat(rr.getAttribute('width')),oh:parseFloat(rr.getAttribute('height')),moved:false};
+      e.preventDefault();return;
+    }
+    // 2) cuerpo de una zona → mover (o seleccionar si no se arrastra)
     var rect=e.target.closest('.zone-rect');
     if(!rect)return;
-    isDragging=true;
-    dragZ=rect;
-    dragZ.classList.add('dragging');
-    var svgRect=svg.getBoundingClientRect();
-    dragX=e.clientX-svgRect.left;
-    dragY=e.clientY-svgRect.top;
+    ziState={mode:'move',rect:rect,zone:rect.getAttribute('data-zone'),sx:p.x,sy:p.y,
+      ox:parseFloat(rect.getAttribute('x')),oy:parseFloat(rect.getAttribute('y')),
+      w:parseFloat(rect.getAttribute('width')),h:parseFloat(rect.getAttribute('height')),moved:false};
     e.preventDefault();
   });
-  
+
   document.addEventListener('mousemove',function(e){
-    if(!isDragging||!dragZ)return;
-    var svgRect=svg.getBoundingClientRect();
-    var currentX=e.clientX-svgRect.left;
-    var currentY=e.clientY-svgRect.top;
-    var dx=currentX-dragX;
-    var dy=currentY-dragY;
-    
-    var x=parseFloat(dragZ.getAttribute('x'))+dx;
-    var y=parseFloat(dragZ.getAttribute('y'))+dy;
-    
-    // Aplicar snap-to-grid
-    x=Math.round(x/snapGrid)*snapGrid;
-    y=Math.round(y/snapGrid)*snapGrid;
-    
-    // Limites
-    x=Math.max(minBounds.x,Math.min(x,minBounds.maxX-parseFloat(dragZ.getAttribute('width'))));
-    y=Math.max(minBounds.y,Math.min(y,minBounds.maxY-parseFloat(dragZ.getAttribute('height'))));
-    
-    dragZ.setAttribute('x',x);
-    dragZ.setAttribute('y',y);
-    
-    // Mover textos asociados
-    var z=dragZ.getAttribute('data-zone');
-    var w=parseFloat(dragZ.getAttribute('width'))/2;
-    var h=parseFloat(dragZ.getAttribute('height'))/2;
-    
-    document.querySelectorAll('.zlbl[data-zone="'+z+'"]').forEach(function(lbl){
-      lbl.setAttribute('x',x+w);
-      lbl.setAttribute('y',y+h-6);
-    });
-    document.querySelectorAll('.zcnt[data-zone="'+z+'"]').forEach(function(cnt){
-      cnt.setAttribute('x',x+w);
-      cnt.setAttribute('y',y+h+8);
-    });
-    
-    dragX=currentX;dragY=currentY;
-  });
-  
-  document.addEventListener('mouseup',function(){
-    if(isDragging&&dragZ){
-      var z=dragZ.getAttribute('data-zone');
-      var cfg=getZoneConfig(z);
-      cfg.x=parseFloat(dragZ.getAttribute('x'));
-      cfg.y=parseFloat(dragZ.getAttribute('y'));
-      cfg.w=parseFloat(dragZ.getAttribute('width'));
-      cfg.h=parseFloat(dragZ.getAttribute('height'));
-      saveZones();
-      dragZ.classList.remove('dragging');
-      isDragging=false;
-      dragZ=null;
-      toast('Zona reposicionada','ok');
+    if(!ziState)return;
+    var p=pt(e);var dx=p.x-ziState.sx,dy=p.y-ziState.sy;
+    if(!ziState.moved&&Math.abs(dx)<TH&&Math.abs(dy)<TH)return;  // aun es un clic
+    ziState.moved=true;ziState.rect.classList.add('dragging');
+    if(ziState.mode==='move'){
+      var nx=Math.max(5,Math.min(snap(ziState.ox+dx),615-ziState.w));
+      var ny=Math.max(5,Math.min(snap(ziState.oy+dy),795-ziState.h));
+      ziState.rect.setAttribute('x',nx);ziState.rect.setAttribute('y',ny);
+    }else{
+      var x=parseFloat(ziState.rect.getAttribute('x'));
+      var y=parseFloat(ziState.rect.getAttribute('y'));
+      var nw=Math.max(30,Math.min(snap(ziState.ow+dx),615-x));
+      var nh=Math.max(20,Math.min(snap(ziState.oh+dy),795-y));
+      ziState.rect.setAttribute('width',nw);ziState.rect.setAttribute('height',nh);
     }
+    syncZoneGraphics(ziState.zone);
+  });
+
+  document.addEventListener('mouseup',function(){
+    if(!ziState)return;
+    var st=ziState;ziState=null;
+    st.rect.classList.remove('dragging');
+    if(!st.moved){selectZone(st.zone);return;}  // sin arrastre → fue un clic: seleccionar
+    var cfg=getZoneConfig(st.zone);
+    cfg.x=parseFloat(st.rect.getAttribute('x'));
+    cfg.y=parseFloat(st.rect.getAttribute('y'));
+    cfg.w=parseFloat(st.rect.getAttribute('width'));
+    cfg.h=parseFloat(st.rect.getAttribute('height'));
+    saveZones();persistMap();
+    toast(st.mode==='resize'?'Zona redimensionada':'Zona reposicionada','ok');
+  });
+
+  // Menu contextual delegado → editar zona
+  svg.addEventListener('contextmenu',function(e){
+    var rect=e.target.closest('.zone-rect');
+    if(rect){e.preventDefault();openZoneEdit(rect.getAttribute('data-zone'));}
+  });
+
+  // Tecla Suprimir → borrar la zona seleccionada
+  document.addEventListener('keydown',function(e){
+    if(e.key!=='Delete')return;
+    var t=e.target;
+    if(t&&(t.tagName==='INPUT'||t.tagName==='TEXTAREA'||t.isContentEditable))return;
+    if(document.querySelector('.mo.act')||document.querySelector('.mxls.act'))return;  // hay un modal abierto
+    if(!sel)return;
+    e.preventDefault();
+    currentZoneEdit=sel;
+    confirmDelZone();
   });
 }
 
@@ -1123,17 +1177,10 @@ function renderMapWithConfig(){
     if(el)el.textContent=n>0?n+' art.':'';
     if(cfg.color)r.style.fill=cfg.color;
     else r.style.fill='';
-    
-    // Botón contextual para editar zona
-    r.style.cursor='grab';
-    r.addEventListener('contextmenu',function(e){
-      e.preventDefault();
-      openZoneEdit(z);
-    });
-    
-    // Tooltip al hover
-    r.setAttribute('title','Zona '+z+(cfg.name?' - '+cfg.name:'')+'\n'+n+' artículo'+(n!==1?'s':''));
+    // Tooltip al hover (la seleccion y el menu contextual son delegados)
+    r.setAttribute('title','Zona '+z+(cfg.name?' - '+cfg.name:'')+'\n'+n+' artículo'+(n!==1?'s':'')+'\nClic = ver · Arrastrar = mover · Clic derecho = editar · Supr = borrar');
   });
+  updateResizeHandle();
   updateStats();
 }
 
@@ -1166,6 +1213,8 @@ function buildMapSvgString(){
     var sc=src.children,dc=dst.children;
     for(var i=0;i<sc.length;i++)inl(sc[i],dc[i]);
   })(svg,clone);
+  // El tirador de redimension no debe salir en la imagen copiada/impresa
+  var rh=clone.querySelector('#resize-handle');if(rh)rh.remove();
   var vb=svg.viewBox.baseVal;
   clone.setAttribute('width',vb.width);
   clone.setAttribute('height',vb.height);
@@ -1609,7 +1658,7 @@ ensureIds();
 applyZoneConfigs();
 renderMap();
 renderZone();
-initDragDrop();
+initZoneInteract();
 </script>
 </body>
 </html>

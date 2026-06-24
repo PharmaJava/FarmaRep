@@ -1,5 +1,6 @@
 const { app, BrowserWindow, Menu, shell, dialog, ipcMain, clipboard, nativeImage } = require('electron');
 const path = require('path');
+const fs = require('fs');
 
 // Copiar imagen al portapapeles del sistema (solicitado desde el renderer).
 ipcMain.handle('copy-image', (event, dataURL) => {
@@ -10,6 +11,37 @@ ipcMain.handle('copy-image', (event, dataURL) => {
     return false;
   }
 });
+
+// ── Inicio automático con Windows ──────────────────────────────────────────
+// La preferencia se guarda en un fichero JSON en la carpeta de datos del
+// usuario. En la primera ejecución se activa por defecto; después respeta la
+// elección del usuario (menú Archivo → "Iniciar con Windows").
+function settingsPath() {
+  return path.join(app.getPath('userData'), 'farmastock-settings.json');
+}
+function readSettings() {
+  try { return JSON.parse(fs.readFileSync(settingsPath(), 'utf8')); } catch (e) { return null; }
+}
+function writeSettings(s) {
+  try { fs.writeFileSync(settingsPath(), JSON.stringify(s)); } catch (e) {}
+}
+function applyAutoStart(enabled) {
+  try {
+    app.setLoginItemSettings({ openAtLogin: !!enabled, path: process.execPath });
+  } catch (e) {}
+}
+function initAutoStart() {
+  let s = readSettings();
+  if (!s) { s = { autoStart: true }; writeSettings(s); } // primera ejecución → activado
+  applyAutoStart(s.autoStart);
+}
+function setAutoStart(enabled) {
+  writeSettings({ autoStart: enabled });
+  applyAutoStart(enabled);
+}
+function isAutoStartOn() {
+  try { return app.getLoginItemSettings().openAtLogin; } catch (e) { return false; }
+}
 
 let mainWindow;
 
@@ -72,6 +104,13 @@ function buildMenu() {
         },
         { type: 'separator' },
         {
+          label: 'Iniciar con Windows',
+          type: 'checkbox',
+          checked: isAutoStartOn(),
+          click: (item) => setAutoStart(item.checked),
+        },
+        { type: 'separator' },
+        {
           label: 'Salir',
           accelerator: 'Alt+F4',
           role: 'quit',
@@ -99,7 +138,7 @@ function buildMenu() {
             dialog.showMessageBox(mainWindow, {
               type: 'info',
               title: 'FarmaStock',
-              message: 'FarmaStock v1.3.0',
+              message: 'FarmaStock v1.5.0',
               detail:
                 'Gestión visual de inventario para almacén farmacéutico.\n\n' +
                 'Los datos se guardan localmente en este equipo.\n' +
@@ -115,7 +154,10 @@ function buildMenu() {
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 }
 
-app.whenReady().then(createWindow);
+app.whenReady().then(() => {
+  initAutoStart();
+  createWindow();
+});
 
 app.on('window-all-closed', () => {
   app.quit();
