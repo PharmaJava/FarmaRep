@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- Fondo -->
+  <rect width="256" height="256" rx="32" fill="#1a3a5c"/>
+  <!-- Cruz farmacia -->
+  <rect x="104" y="48" width="48" height="160" rx="10" fill="#ffffff"/>
+  <rect x="48" y="104" width="160" height="48" rx="10" fill="#ffffff"/>
+  <!-- Punto verde indicando "stock" -->
+  <circle cx="192" cy="64" r="28" fill="#0d7a4e"/>
+  <text x="192" y="72" text-anchor="middle" font-family="sans-serif" font-weight="bold" font-size="28" fill="#ffffff">✓</text>
+</svg>
