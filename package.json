@@ -1,6 +1,6 @@
 {
   "name": "farmastock",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "description": "Gestión visual de inventario para almacén farmacéutico",
   "author": "PharmaJava",
   "main": "electron/main.js",

@@ -4,6 +4,13 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 
 ---
 
+## [1.4.1] — 2026-06-24
+
+### Cambiado
+- El plano del almacén y el panel lateral ahora se reparten la pantalla al **50% / 50%**. Antes el panel lateral era fijo y estrecho (390 px), dejando mucho espacio en blanco a los lados del plano; ahora ese espacio se aprovecha para la búsqueda y la gestión de artículos.
+
+---
+
 ## [1.4.0] — 2026-06-24
 
 ### Añadido

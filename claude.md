@@ -213,4 +213,4 @@ Estas tareas **no** deben paralelizarse porque tienen dependencias entre sí:
 
 ## Versión actual
 
-`v1.4.0` — Plano ajustado a pantalla + Copiar/Imprimir mapa; empaquetado del Editor de Mapas y `vendor/` corregido. Ver `CHANGELOG.md` para historial completo.
+`v1.4.1` — Plano y panel lateral al 50/50. Incluye plano ajustado a pantalla, Copiar/Imprimir mapa y empaquetado del Editor de Mapas y `vendor/` corregido. Ver `CHANGELOG.md` para historial completo.
